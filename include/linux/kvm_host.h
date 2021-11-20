@@ -360,6 +360,15 @@ struct kvm_vcpu {
 	 * it is a valid slot.
 	 */
 	int last_used_slot;
+	/*
+	 * Number of pages this vCPU has dirtied since its creation.
+	 */
+	int dirty_count;
+	/*
+	 * Number of pages this vCPU is allowed to dirty. To dirty more, it
+	 * needs to request more quota by exiting to userspace.
+	 */
+	int dirty_quota;
 };
 
 /* must be called with irqs disabled */
@@ -623,6 +632,7 @@ struct kvm {
 	struct notifier_block pm_notifier;
 #endif
 	char stats_id[KVM_STATS_NAME_SIZE];
+	bool dirty_quota_throttling;
 };
 
 #define kvm_err(fmt, ...) \

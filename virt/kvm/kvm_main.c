@@ -1079,6 +1079,7 @@ static struct kvm *kvm_create_vm(unsigned long type)
 	}
 
 	kvm->max_halt_poll_ns = halt_poll_ns;
+	kvm->dirty_quota_throttling = false;
 
 	r = kvm_arch_init_vm(kvm, type);
 	if (r)
@@ -3013,6 +3014,9 @@ void mark_page_dirty_in_slot(struct kvm *kvm,
 					    slot, rel_gfn);
 		else
 			set_bit_le(rel_gfn, memslot->dirty_bitmap);
+
+		struct kvm_vcpu *vcpu = kvm_get_running_vcpu();
+		vcpu->dirty_count++;
 	}
 }
 EXPORT_SYMBOL_GPL(mark_page_dirty_in_slot);
@@ -3559,6 +3563,9 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, u32 id)
 		if (r)
 			goto arch_vcpu_destroy;
 	}
+
+	vcpu->dirty_count = 0;
+	vcpu->dirty_quota = 0;
 
 	mutex_lock(&kvm->lock);
 	if (kvm_get_vcpu_by_id(kvm, id)) {
