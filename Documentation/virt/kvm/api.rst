@@ -7484,3 +7484,45 @@ The argument to KVM_ENABLE_CAP is also a bitmask, and must be a subset
 of the result of KVM_CHECK_EXTENSION.  KVM will forward to userspace
 the hypercalls whose corresponding bit is in the argument, and return
 ENOSYS for the others.
+
+8.35 KVM_CAP_DIRTY_QUOTA_THROTTLING
+-----------------------------------
+
+:Architectures: x86
+:Parameters: args[0] - boolean value specifying whether to enable or disable
+             dirty quota throttling (true and false respectively)
+
+With dirty quota throttling, memory dirtying is throttled by setting a limit on
+the number of pages a vCPU can dirty in given fixed microscopic size time
+intervals. To enforce this, two variables namely dirty_count and dirty_quota
+are defined for every vCPU which store the number of pages the vCPU has dirtied
+since its creation and the number of pages it is allowed to dirty without an
+intervention from userspace, respectively.
+
+When the guest tries to dirty a page, it leads to a vmexit as each page is
+write-protected. In the vmexit path, we increment the dirty_count for the
+corresponding vCPU. Then, we check if the vCPU has exhausted its quota. If yes,
+we exit to userspace with a new exit reason KVM_EXIT_DIRTY_QUOTA_FULL. This
+"quota full" event is further handled on the userspace side.
+
+The kvm flag dirty_quota_throttling is defined to enable/disable dirty quota
+throttling, i.e. exhausting the dirty quota can lead to an exit to userspace
+only if this flag is set.
+
+The userspace can design a strategy to allocate the overall scope of dirtying
+for the VM (which it can estimate on the basis of available network bandwith
+and degree of throttling) among the vCPUs, e.g.
+
+Equally dividing the available scope of dirtying to all the vCPUs can ensure
+fairness and selective throttling as the vCPU dirtying extensively will consume
+its share very soon and will have to wait for a new share to continue dirtying
+without affecting some other vCPU which might be running mostly-read-workload
+and thus might not consume its share soon enough. This ensures that only write
+workloads are penalised with little effect on read workloads.
+
+However, there can be skewed cases where a few vCPUs might not be dirtying
+enough and might be sitting on a huge dirty quota pool. This unused dirty quota
+could be used by other vCPUs. So, the share of a vCPU, if not claimed in a
+given interval, can be added to a common pool which can be served on a First-
+Come-First-Basis. This common pool can be claimed by any vCPU only after it has
+exhausted its individual share for the given time interval.
