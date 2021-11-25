@@ -4130,6 +4130,10 @@ static long kvm_vm_ioctl_check_extension_generic(struct kvm *kvm, long arg)
 #endif
 	case KVM_CAP_BINARY_STATS_FD:
 		return 1;
+#ifdef KVM_CAP_DIRTY_QUOTA_THROTTLING
+	case KVM_CAP_DIRTY_QUOTA_THROTTLING:
+		return 1;
+#endif
 	default:
 		break;
 	}
@@ -4196,6 +4200,14 @@ static int kvm_vm_ioctl_reset_dirty_pages(struct kvm *kvm)
 	return cleared;
 }
 
+/* this ioctl enables/disables dirty quota throttling based on 'enabled' flag */
+static int kvm_vm_ioctl_enable_dirty_quota_throttling(struct kvm *kvm,
+							bool enabled)
+{
+	atomic_set(&kvm->dirty_quota_throttling, enabled);
+	return 0;
+}
+
 int __attribute__((weak)) kvm_vm_ioctl_enable_cap(struct kvm *kvm,
 						  struct kvm_enable_cap *cap)
 {
@@ -4228,6 +4240,11 @@ static int kvm_vm_ioctl_enable_cap_generic(struct kvm *kvm,
 	}
 	case KVM_CAP_DIRTY_LOG_RING:
 		return kvm_vm_ioctl_enable_dirty_log_ring(kvm, cap->args[0]);
+#ifdef KVM_CAP_DIRTY_QUOTA_THROTTLING
+	case KVM_CAP_DIRTY_QUOTA_THROTTLING:
+		return kvm_vm_ioctl_enable_dirty_quota_throttling(kvm,
+				cap->args[0]);
+#endif
 	default:
 		return kvm_vm_ioctl_enable_cap(kvm, cap);
 	}
