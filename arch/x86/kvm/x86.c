@@ -9995,6 +9995,11 @@ static inline bool kvm_vcpu_running(struct kvm_vcpu *vcpu)
 		!vcpu->arch.apf.halted);
 }
 
+static inline bool is_dirty_quota_full(struct kvm_run *run)
+{
+	return (run->vcpu_dirty_count >= run->vcpu_dirty_quota);
+}
+
 static int vcpu_run(struct kvm_vcpu *vcpu)
 {
 	int r;
@@ -10031,6 +10036,17 @@ static int vcpu_run(struct kvm_vcpu *vcpu)
 			if (r)
 				return r;
 			vcpu->srcu_idx = srcu_read_lock(&kvm->srcu);
+		}
+
+		/*
+		 * exit to userspace when dirty quota is full (if dirty quota
+		 * throttling is enabled)
+		 */
+		if (atomic_read(&kvm->dirty_quota_throttling) &&
+				is_dirty_quota_full(vcpu->run)) {
+			vcpu->run->exit_reason = KVM_EXIT_DIRTY_QUOTA_FULL;
+			r = 0;
+			break;
 		}
 	}
 

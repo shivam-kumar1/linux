@@ -270,6 +270,7 @@ struct kvm_xen_exit {
 #define KVM_EXIT_X86_BUS_LOCK     33
 #define KVM_EXIT_XEN              34
 #define KVM_EXIT_RISCV_SBI        35
+#define KVM_EXIT_DIRTY_QUOTA_FULL 36
 
 /* For KVM_EXIT_INTERNAL_ERROR */
 /* Emulate instruction failed. */
@@ -508,6 +509,17 @@ struct kvm_run {
 		struct kvm_sync_regs regs;
 		char padding[SYNC_REGS_SIZE_BYTES];
 	} s;
+
+	/*
+	 * Number of pages the vCPU has dirtied since its creation.
+	 */
+	__u64 vcpu_dirty_count;
+	/*
+	 * Number of pages the vCPU is allowed to dirty (if dirty quota
+	 * throttling is enabled). To dirty more, it needs to request more
+	 * quota by exiting to userspace.
+	 */
+	__u64 vcpu_dirty_quota;
 };
 
 /* for KVM_REGISTER_COALESCED_MMIO / KVM_UNREGISTER_COALESCED_MMIO */
