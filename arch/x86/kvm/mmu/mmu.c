@@ -3401,8 +3401,12 @@ static bool fast_pf_fix_direct_spte(struct kvm_vcpu *vcpu,
 	if (!try_cmpxchg64(sptep, &old_spte, new_spte))
 		return false;
 
-	if (is_writable_pte(new_spte) && !is_writable_pte(old_spte))
+	if (is_writable_pte(new_spte) && !is_writable_pte(old_spte)) {
+		struct kvm_mmu_page *sp = sptep_to_sp(sptep);
+
+		update_dirty_quota(vcpu->kvm, (1L << SPTE_LEVEL_SHIFT(sp->role.level)));
 		mark_page_dirty_in_slot(vcpu->kvm, fault->slot, fault->gfn);
+	}
 
 	return true;
 }

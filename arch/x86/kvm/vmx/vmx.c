@@ -5834,6 +5834,9 @@ static int handle_invalid_guest_state(struct kvm_vcpu *vcpu)
 		 */
 		if (__xfer_to_guest_mode_work_pending())
 			return 1;
+
+		if (kvm_test_request(KVM_REQ_DIRTY_QUOTA_EXIT, vcpu))
+			return 1;
 	}
 
 	return 1;

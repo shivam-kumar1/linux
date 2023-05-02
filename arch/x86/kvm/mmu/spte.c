@@ -243,6 +243,7 @@ out:
 	if ((spte & PT_WRITABLE_MASK) && kvm_slot_dirty_track_enabled(slot)) {
 		/* Enforced by kvm_mmu_hugepage_adjust. */
 		WARN_ON(level > PG_LEVEL_4K);
+		update_dirty_quota(vcpu->kvm, (1L << SPTE_LEVEL_SHIFT(level)));
 		mark_page_dirty_in_slot(vcpu->kvm, slot, gfn);
 	}
 
