@@ -6752,6 +6752,23 @@ Please note that the kernel is allowed to use the kvm_run structure as the
 primary storage for certain register types. Therefore, the kernel may use the
 values in kvm_run even if the corresponding bit in kvm_dirty_regs is not set.
 
+::
+
+	/*
+	 * Number of bytes the vCPU is allowed to dirty if KVM_CAP_DIRTY_QUOTA is
+	 * enabled. KVM_RUN exits with KVM_EXIT_DIRTY_QUOTA_EXHAUSTED if this quota
+	 * is exhausted, i.e. dirty_quota_bytes <= 0.
+	 */
+	long dirty_quota_bytes;
+
+Please note that enforcing the quota is best effort. Dirty quota is reduced by
+arch-specific page size when any guest page is dirtied. Also, the guest may dirty
+multiple pages before KVM can recheck the quota, e.g. when PML is enabled.
+
+::
+  };
+
+
 
 6. Capabilities that can be enabled on vCPUs
 ============================================
