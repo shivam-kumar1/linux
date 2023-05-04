@@ -3307,6 +3307,20 @@ int kvm_clear_guest(struct kvm *kvm, gpa_t gpa, unsigned long len)
 }
 EXPORT_SYMBOL_GPL(kvm_clear_guest);
 
+#ifdef CONFIG_HAVE_KVM_DIRTY_QUOTA
+void update_dirty_quota(struct kvm *kvm, unsigned long page_size_bytes)
+{
+	struct kvm_vcpu *vcpu = kvm_get_running_vcpu();
+
+	if (!vcpu || (vcpu->kvm != kvm) || !READ_ONCE(kvm->dirty_quota_enabled))
+		return;
+
+	vcpu->run->dirty_quota_bytes -= page_size_bytes;
+	if (vcpu->run->dirty_quota_bytes <= 0)
+		kvm_make_request(KVM_REQ_DIRTY_QUOTA_EXIT, vcpu);
+}
+#endif
+
 void mark_page_dirty_in_slot(struct kvm *kvm,
 			     const struct kvm_memory_slot *memslot,
 		 	     gfn_t gfn)
@@ -3337,6 +3351,9 @@ void mark_page_dirty(struct kvm *kvm, gfn_t gfn)
 	struct kvm_memory_slot *memslot;
 
 	memslot = gfn_to_memslot(kvm, gfn);
+#ifdef CONFIG_HAVE_KVM_DIRTY_QUOTA
+	update_dirty_quota(kvm, PAGE_SIZE);
+#endif
 	mark_page_dirty_in_slot(kvm, memslot, gfn);
 }
 EXPORT_SYMBOL_GPL(mark_page_dirty);
@@ -3346,6 +3363,9 @@ void kvm_vcpu_mark_page_dirty(struct kvm_vcpu *vcpu, gfn_t gfn)
 	struct kvm_memory_slot *memslot;
 
 	memslot = kvm_vcpu_gfn_to_memslot(vcpu, gfn);
+#ifdef CONFIG_HAVE_KVM_DIRTY_QUOTA
+	update_dirty_quota(vcpu->kvm, PAGE_SIZE);
+#endif
 	mark_page_dirty_in_slot(vcpu->kvm, memslot, gfn);
 }
 EXPORT_SYMBOL_GPL(kvm_vcpu_mark_page_dirty);
@@ -4526,6 +4546,8 @@ static int kvm_vm_ioctl_check_extension_generic(struct kvm *kvm, long arg)
 	case KVM_CAP_BINARY_STATS_FD:
 	case KVM_CAP_SYSTEM_EVENT_DATA:
 		return 1;
+	case KVM_CAP_DIRTY_QUOTA:
+		return !!IS_ENABLED(CONFIG_HAVE_KVM_DIRTY_QUOTA);
 	default:
 		break;
 	}
@@ -4675,6 +4697,11 @@ static int kvm_vm_ioctl_enable_cap_generic(struct kvm *kvm,
 
 		return r;
 	}
+#ifdef CONFIG_HAVE_KVM_DIRTY_QUOTA
+	case KVM_CAP_DIRTY_QUOTA:
+		WRITE_ONCE(kvm->dirty_quota_enabled, cap->args[0]);
+		return 0;
+#endif
 	default:
 		return kvm_vm_ioctl_enable_cap(kvm, cap);
 	}
